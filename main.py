@@ -14,7 +14,7 @@ display(FileLink(out))
 !echo ""
 
 # Run
-!g++ -std=c++17 -O3 $src/main.cxx
+!nvcc -std=c++17 -Xcompiler -DNVGRAPH_DISABLE -O3 $src/main.cu
 !ulimit -s unlimited && stdbuf --output=L ./a.out $inp/CollegeMsg.txt             2>&1 | tee -a "$out"
 !ulimit -s unlimited && stdbuf --output=L ./a.out $inp/email-Eu-core-temporal.txt 2>&1 | tee -a "$out"
 !ulimit -s unlimited && stdbuf --output=L ./a.out $inp/sx-mathoverflow.txt        2>&1 | tee -a "$out"
