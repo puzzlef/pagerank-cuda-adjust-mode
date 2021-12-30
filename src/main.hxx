@@ -15,5 +15,5 @@
 #include "sort.hxx"
 #include "dynamic.hxx"
 #include "pagerank.hxx"
-#include "pagerankSeq.hxx"
-#include "pagerankMonolithicSeq.hxx"
+#include "pagerankCuda.hxx"
+#include "pagerankMonolithicCuda.hxx"
