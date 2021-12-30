@@ -37,71 +37,6 @@ void pagerankPartition(const H& xt, vector<int>& ks) {
 
 
 
-// PAGERANK-COMPONENTS
-// -------------------
-
-template <class G, class H, class T>
-auto pagerankComponents(const G& x, const H& xt, const PagerankOptions<T>& o) {
-  if (!o.splitComponents) return vector2d<int> {vertices(xt)};
-  if (!o.sortComponents)  return components(x, xt);
-  return sortedComponents(x, xt);
-}
-
-template <class G, class H, class T>
-auto pagerankCudaComponents(const G& x, const H& xt, const PagerankOptions<T>& o) {
-  auto cs = pagerankComponents(x, xt, o);
-  auto a  = joinUntilSize(cs, o.minCompute);
-  for (auto& ks : a)
-    pagerankPartition(xt, ks);
-  return a;
-}
-
-
-
-
-// PAGERANK-DYNAMIC-VERTICES
-// -------------------------
-
-template <class G, class H>
-auto pagerankDynamicComponentsDefault(const G& x, const H& xt, const G& y, const H& yt) {
-  vector2d<int> a;
-  auto [ks, n] = dynamicVertices(x, xt, y, yt);
-  a.push_back(vector<int>(ks.begin(), ks.begin()+n));
-  a.push_back(vector<int>(ks.begin()+n, ks.end()));
-  return make_pair(a, 1);
-}
-
-template <class G, class H, class T>
-auto pagerankDynamicComponentsSplit(const G& x, const H& xt, const G& y, const H& yt, const PagerankOptions<T>& o) {
-  auto cs = components(y, yt);
-  auto b  = blockgraph(y, cs);
-  if (o.sortComponents) sortComponents(cs, b);
-  auto [is, n] = dynamicComponentIndices(x, xt, y, yt, cs, b);
-  vector2d<int> a;
-  for (int i : is)
-    a.push_back(move(cs[i]));
-  return make_pair(a, n);
-}
-
-template <class G, class H, class T>
-auto pagerankDynamicComponents(const G& x, const H& xt, const G& y, const H& yt, const PagerankOptions<T>& o) {
-  if (o.splitComponents) return pagerankDynamicComponentsSplit(x, xt, y, yt, o);
-  return pagerankDynamicComponentsDefault(x, xt, y, yt);
-}
-
-template <class G, class H, class T>
-auto pagerankCudaDynamicComponents(const G& x, const H& xt, const G& y, const H& yt, const PagerankOptions<T>& o) {
-  auto [cs, n] = pagerankDynamicComponents(x, xt, y, yt, o);
-  auto a  = joinUntilSize(sliceIter(cs, 0, n), o.minCompute);
-  for (auto& ks : a)
-    pagerankPartition(xt, ks);
-  a.push_back(join(sliceIter(cs, n)));
-  return make_pair(a, a.size()-1);
-}
-
-
-
-
 // PAGERANK-FACTOR
 // ---------------
 // For contribution factors of vertices (unchanging).
@@ -282,7 +217,7 @@ T pagerankErrorReduce(const T *x, int N, int EF) {
 
 // PAGERANK
 // --------
-// For Monolithic / Levelwise PageRank.
+// For Monolithic / Componentwise PageRank.
 
 template <class H, class J, class M, class FL, class T=float>
 PagerankResult<T> pagerankCuda(const H& xt, const J& ks, int i, const M& ns, FL fl, const vector<T> *q, const PagerankOptions<T>& o) {
@@ -329,7 +264,7 @@ PagerankResult<T> pagerankCuda(const H& xt, const J& ks, int i, const M& ns, FL 
     TRY( cudaMemcpy(aD, r.data(), N1, cudaMemcpyHostToDevice) );
     TRY( cudaMemcpy(rD, r.data(), N1, cudaMemcpyHostToDevice) );
     mark([&] { pagerankFactorCu(fD, vdataD, 0, N, p); multiplyCu(cD, aD, fD, N); });                       // calculate factors (fD) and contributions (cD)
-    mark([&] { l = fl(e, r0, eD, r0D, aD, rD, cD, fD, vfromD, efromD, vdataD, i, ns, N, p, E, L, EF); });  // calculate ranks of vertices
+    mark([&] { l = fl(e, r0, eD, r0D, aD, rD, cD, fD, vfromD, efromD, i, ns, N, p, E, L, EF); });  // calculate ranks of vertices
   }, o.repeat);
   TRY( cudaMemcpy(a.data(), aD, N1, cudaMemcpyDeviceToHost) );
 
